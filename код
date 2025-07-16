@@ -1,0 +1,121 @@
+import tkinter as tk
+from tkinter import messagebox
+import numpy as np
+import matplotlib.pyplot as plt
+
+# === КЛАСС ИНТЕРПОЛЯТОРА ===
+class NewtonInterpolator:
+    def __init__(self, x_points, y_points):
+        self.x = np.array(x_points, dtype=float)
+        self.y = np.array(y_points, dtype=float)
+        self.n = len(x_points)
+        self.div_diff_table = self._calculate_divided_differences()
+
+    def _calculate_divided_differences(self):
+        n = self.n
+        table = np.zeros((n, n))
+        table[:, 0] = self.y
+
+        for j in range(1, n):
+            for i in range(n - j):
+                numerator = table[i + 1][j - 1] - table[i][j - 1]
+                denominator = self.x[i + j] - self.x[i]
+                table[i][j] = numerator / denominator
+
+        return table
+
+    def get_polynomial_coefficients(self):
+        return self.div_diff_table[0]
+
+    def evaluate(self, x_value):
+        coeffs = self.get_polynomial_coefficients()
+        result = coeffs[-1]
+        for i in range(self.n - 2, -1, -1):
+            result = result * (x_value - self.x[i]) + coeffs[i]
+        return result
+
+    def plot(self, resolution=500):
+        x_min, x_max = min(self.x), max(self.x)
+        x_vals = np.linspace(x_min, x_max, resolution)
+        y_vals = [self.evaluate(xi) for xi in x_vals]
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(x_vals, y_vals, label="Полином Ньютона", color="blue")
+        plt.scatter(self.x, self.y, color="red", label="Узлы интерполяции")
+        plt.title("Интерполяция методом Ньютона")
+        plt.xlabel("x")
+        plt.ylabel("P(x)")
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
+# === ГРАФИЧЕСКИЙ ИНТЕРФЕЙС ===
+class NewtonApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Интерполяция методом Ньютона")
+        self.x_list = []
+        self.y_list = []
+
+        # Ввод координат
+        tk.Label(root, text="x:").grid(row=0, column=0)
+        self.x_entry = tk.Entry(root, width=10)
+        self.x_entry.grid(row=0, column=1)
+
+        tk.Label(root, text="y:").grid(row=0, column=2)
+        self.y_entry = tk.Entry(root, width=10)
+        self.y_entry.grid(row=0, column=3)
+
+        tk.Button(root, text="Добавить точку", command=self.add_point).grid(row=0, column=4)
+
+        self.points_label = tk.Label(root, text="Точки: []")
+        self.points_label.grid(row=1, column=0, columnspan=5, pady=5)
+
+        # Ввод точки для оценки
+        tk.Label(root, text="x для оценки:").grid(row=2, column=0)
+        self.eval_entry = tk.Entry(root, width=10)
+        self.eval_entry.grid(row=2, column=1)
+        tk.Button(root, text="Вычислить P(x)", command=self.evaluate_point).grid(row=2, column=2)
+
+        self.result_label = tk.Label(root, text="P(x) = ")
+        self.result_label.grid(row=2, column=3, columnspan=2)
+
+        # Кнопка графика
+        tk.Button(root, text="Построить график", command=self.plot_polynomial).grid(row=3, column=0, columnspan=5, pady=10)
+
+    def add_point(self):
+        try:
+            x_val = float(self.x_entry.get())
+            y_val = float(self.y_entry.get())
+            self.x_list.append(x_val)
+            self.y_list.append(y_val)
+            self.points_label.config(text=f"Точки: {list(zip(self.x_list, self.y_list))}")
+            self.x_entry.delete(0, tk.END)
+            self.y_entry.delete(0, tk.END)
+        except ValueError:
+            messagebox.showerror("Ошибка", "Введите корректные числовые значения!")
+
+    def evaluate_point(self):
+        try:
+            if len(self.x_list) < 2:
+                messagebox.showwarning("Мало точек", "Добавьте хотя бы 2 точки.")
+                return
+            x_eval = float(self.eval_entry.get())
+            interpolator = NewtonInterpolator(self.x_list, self.y_list)
+            result = interpolator.evaluate(x_eval)
+            self.result_label.config(text=f"P({x_eval}) = {result:.4f}")
+        except ValueError:
+            messagebox.showerror("Ошибка", "Введите корректное значение x.")
+
+    def plot_polynomial(self):
+        if len(self.x_list) < 2:
+            messagebox.showwarning("Мало точек", "Добавьте хотя бы 2 точки.")
+            return
+        interpolator = NewtonInterpolator(self.x_list, self.y_list)
+        interpolator.plot()
+
+# === Запуск интерфейса ===
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = NewtonApp(root)
+    root.mainloop()
